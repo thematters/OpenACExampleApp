@@ -19,6 +19,7 @@ struct PersonhoodHelperHandoff: Equatable {
   let createdAt: String?
   let proofInput: PersonhoodProofInput
   let linkVerifyURL: URL
+  let handoffToken: String?
   let certChainType: String?
   let certChainProvingKeyURL: URL?
   let userSigProvingKeyURL: URL?
@@ -115,6 +116,7 @@ extension PersonhoodHelperHandoff {
         signedResponse: signedResponse
       ),
       linkVerifyURL: linkVerifyURL,
+      handoffToken: json["handoffToken"] as? String,
       certChainType: json["certChainType"] as? String,
       certChainProvingKeyURL: urlField(json, "certChainProvingKeyUrl"),
       userSigProvingKeyURL: urlField(json, "userSigProvingKeyUrl"),
