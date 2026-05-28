@@ -84,6 +84,7 @@ final class ProofViewModel {
   private var userSigProvingKeyURL = defaultUserSigProvingKeyURL
   private var smtSnapshotURL = defaultSMTSnapshotURL
   private var linkVerifyURL = defaultLinkVerifyURL
+  private var handoffToken: String?
 
   var moicaAppInstalled: Bool {
     guard let url = URL(string: "mobilemoica://") else { return false }
@@ -463,6 +464,7 @@ final class ProofViewModel {
     challenge = handoff.proofInput.challenge
     challengeExpiresAt = handoff.proofInput.challengeExpiresAt.flatMap(Self.parseChallengeExpiry)
     linkVerifyURL = handoff.linkVerifyURL
+    handoffToken = handoff.handoffToken
     returnURL = handoff.returnURL
     handoffSource = handoff.source
     if let url = handoff.certChainProvingKeyURL {
@@ -507,6 +509,7 @@ final class ProofViewModel {
     userSigProvingKeyURL = defaultUserSigProvingKeyURL
     smtSnapshotURL = defaultSMTSnapshotURL
     linkVerifyURL = defaultLinkVerifyURL
+    handoffToken = nil
     verificationStartTime = nil
     totalVerificationSeconds = nil
     verifyMilliseconds = nil
@@ -708,10 +711,12 @@ final class ProofViewModel {
       struct LinkVerifyRequest: Encodable {
         let certChainType: String
         let certChainProof: Data
+        let handoffToken: String?
         let userSigProof: Data
         enum CodingKeys: String, CodingKey {
           case certChainType = "cert_chain_type"
           case certChainProof = "cert_chain_proof"
+          case handoffToken = "handoff_token"
           case userSigProof = "user_sig_proof"
         }
       }
@@ -724,6 +729,7 @@ final class ProofViewModel {
         LinkVerifyRequest(
           certChainType: "rs4096",
           certChainProof: ccProof,
+          handoffToken: handoffToken,
           userSigProof: usProof,
         ))
 
