@@ -9,18 +9,18 @@ import OpenACSwift
 import UIKit
 import zlib
 
-private let certChainProvingKeyURL = URL(
+private let defaultCertChainProvingKeyURL = URL(
   string:
     "https://github.com/zkmopro/zkID/releases/download/latest/cert_chain_rs4096_proving.key.gz")!
-private let userSigProvingKeyURL = URL(
+private let defaultUserSigProvingKeyURL = URL(
   string:
     "https://github.com/zkmopro/zkID/releases/download/latest/user_sig_rs2048_proving.key.gz")!
-private let smtSnapshotURL = URL(
+private let defaultSMTSnapshotURL = URL(
   string:
     "https://github.com/moven0831/moica-revocation-smt/releases/download/snapshot-latest/g3-tree-snapshot.json.gz"
 )!
 private let serverURL = URL(string: "https://a5b6-3-85-109-129.ngrok-free.app/challenge")!
-private let linkVerifyURL = URL(string: "https://a5b6-3-85-109-129.ngrok-free.app/link-verify")!
+private let defaultLinkVerifyURL = URL(string: "https://a5b6-3-85-109-129.ngrok-free.app/link-verify")!
 
 @Observable
 @MainActor
@@ -76,6 +76,14 @@ final class ProofViewModel {
   var verificationStartTime: Date?
   var totalVerificationSeconds: Double?
   var verifyMilliseconds: Int?
+  var handoffStatus: StepStatus = .idle
+  var handoffSource: String?
+  var returnURL: URL?
+
+  private var certChainProvingKeyURL = defaultCertChainProvingKeyURL
+  private var userSigProvingKeyURL = defaultUserSigProvingKeyURL
+  private var smtSnapshotURL = defaultSMTSnapshotURL
+  private var linkVerifyURL = defaultLinkVerifyURL
 
   var moicaAppInstalled: Bool {
     guard let url = URL(string: "mobilemoica://") else { return false }
@@ -92,6 +100,7 @@ final class ProofViewModel {
 
   var documentsPath: String { workDir.path }
   var inputPath: String { workDir.appendingPathComponent("input.json").path }
+  var hasProofInput: Bool { athIssuerCert != nil && athResponseString != nil && !tbs.isEmpty && !challenge.isEmpty }
 
   // MARK: - Resource Setup
 
@@ -419,6 +428,20 @@ final class ProofViewModel {
     }
   }
 
+  func handleOpenURL(url: URL) {
+    if url.scheme == Self.returnScheme, url.host == "prove" {
+      do {
+        let handoff = try PersonhoodHelperHandoff.decode(from: url)
+        applyHandoff(handoff)
+      } catch {
+        handoffStatus = .failure(error.localizedDescription)
+        flowStep = .failure(error.localizedDescription)
+      }
+      return
+    }
+    handleCallback(url: url)
+  }
+
   func handleCallback(url: URL) {
     guard url.scheme == Self.returnScheme,
       let comps = URLComponents(url: url, resolvingAgainstBaseURL: false),
@@ -427,6 +450,34 @@ final class ProofViewModel {
     rtnVal = item.value
     flowStep = .returned
     Task { await pollAthResult() }
+  }
+
+  private func applyHandoff(_ handoff: PersonhoodHelperHandoff) {
+    identityCheckEpoch += 1
+    spTicket = nil
+    rtnVal = nil
+    spTicketStatus = .idle
+    athIssuerCert = handoff.proofInput.cert
+    athResponseString = handoff.proofInput.signedResponse
+    tbs = handoff.proofInput.appId
+    challenge = handoff.proofInput.challenge
+    challengeExpiresAt = handoff.proofInput.challengeExpiresAt.flatMap(Self.parseChallengeExpiry)
+    linkVerifyURL = handoff.linkVerifyURL
+    returnURL = handoff.returnURL
+    handoffSource = handoff.source
+    if let url = handoff.certChainProvingKeyURL {
+      certChainProvingKeyURL = url
+    }
+    if let url = handoff.userSigProvingKeyURL {
+      userSigProvingKeyURL = url
+    }
+    if let url = handoff.smtSnapshotURL {
+      smtSnapshotURL = url
+    }
+    tbsStatus = .success("handoff challenge received")
+    athResultStatus = .success("handoff proof input received")
+    handoffStatus = .success("handoff received")
+    flowStep = .returned
   }
 
   // MARK: - Pipeline Actions
@@ -449,6 +500,13 @@ final class ProofViewModel {
     tbsStatus = .idle
     rtnVal = nil
     challengeExpiresAt = nil
+    handoffStatus = .idle
+    handoffSource = nil
+    returnURL = nil
+    certChainProvingKeyURL = defaultCertChainProvingKeyURL
+    userSigProvingKeyURL = defaultUserSigProvingKeyURL
+    smtSnapshotURL = defaultSMTSnapshotURL
+    linkVerifyURL = defaultLinkVerifyURL
     verificationStartTime = nil
     totalVerificationSeconds = nil
     verifyMilliseconds = nil

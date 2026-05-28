@@ -15,7 +15,7 @@ struct OpenACExampleAppApp: App {
         WindowGroup {
             ContentView(vm: vm)
                 .onOpenURL { url in
-                    vm.handleCallback(url: url)
+                    vm.handleOpenURL(url: url)
                 }
         }
     }

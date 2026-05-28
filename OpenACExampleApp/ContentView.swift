@@ -49,6 +49,35 @@ struct ContentView: View {
 
                 // ── SP Ticket / MOICA ─────────────────────────────────
                 Section {
+                    if vm.hasProofInput || vm.handoffStatus != .idle {
+                        HStack(spacing: 16) {
+                            Image(systemName: vm.hasProofInput ? "iphone.and.arrow.forward" : "xmark.circle.fill")
+                                .font(.title2)
+                                .foregroundStyle(spTicketColor(vm.handoffStatus))
+                                .frame(width: 32)
+
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Matters Handoff").font(.headline)
+                                Text(vm.handoffSource ?? "openac://prove payload")
+                                    .font(.caption).foregroundStyle(.secondary)
+
+                                if case .success(let detail) = vm.handoffStatus {
+                                    Text(detail)
+                                        .font(.caption.monospacedDigit())
+                                        .foregroundStyle(.green)
+                                        .padding(.top, 2)
+                                }
+                                if case .failure(let msg) = vm.handoffStatus {
+                                    Text(msg)
+                                        .font(.caption)
+                                        .foregroundStyle(.red)
+                                        .padding(.top, 2)
+                                }
+                            }
+                        }
+                        .padding(.vertical, 4)
+                    }
+
                     // Row 0 – ID number input
                     HStack {
                         Text("ID Number")
@@ -169,7 +198,7 @@ struct ContentView: View {
                     }
 
                     // Row 3 – ath-result
-                    if vm.spTicket != nil {
+                    if vm.spTicket != nil || vm.hasProofInput {
                         HStack(spacing: 16) {
                             Image(systemName: athResultSymbol)
                                 .font(.title2)
@@ -210,7 +239,10 @@ struct ContentView: View {
 
                             Spacer()
 
-                            if case .running = vm.athResultStatus {
+                            if vm.hasProofInput {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundStyle(.green)
+                            } else if case .running = vm.athResultStatus {
                                 ProgressView().controlSize(.small)
                             } else {
                                 Button {
